@@ -1,9 +1,24 @@
 package validators
 
-import "net/mail"
+import (
+	"errors"
+	"net/mail"
+	"strings"
+)
 
-// Email validation
-func IsValidEmail(email string) bool {
+// ValidateEmail checks if the provided email is in a valid format.
+// Returns nil if valid, otherwise an error describing the issue.
+func ValidateEmail(email string) (string, error) {
+	email = strings.TrimSpace(email)
+
+	if email == "" {
+		return "", errors.New("email is required")
+	}
+
 	_, err := mail.ParseAddress(email)
-	return err == nil
+	if err != nil {
+		return "", errors.New("invalid email format")
+	}
+
+	return email, nil
 }

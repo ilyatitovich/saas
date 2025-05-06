@@ -1,76 +1,77 @@
 package middlewares
 
 import (
+	"errors"
 	"net/http"
 
 	"saas/auth/internal/models"
 	"saas/auth/internal/utils"
 	"saas/auth/internal/validators"
 
-	"strings"
-
 	"github.com/gin-gonic/gin"
 )
 
 func ValidateRegisterInput() gin.HandlerFunc {
-
 	return func(c *gin.Context) {
-
 		var input models.RegisterInput
 
-		// Check missing fields
+		// Check for missing fields early
 		if errResponse, hasError := utils.CheckMissingFields(c, &input); hasError {
 			c.JSON(http.StatusBadRequest, errResponse)
 			c.Abort()
 			return
 		}
 
-		// Normalize and sanitize input
-		email := strings.TrimSpace(strings.ToLower(input.Email))
-		phone := strings.TrimSpace(input.Phone)
-		password := strings.TrimSpace(input.Password)
+		// Initialize sanitized input
+		registerInput := models.RegisterInput{}
 
-		// Check identifier: email or phone
-		if input.Email == "" && input.Phone == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Email or phone number is required"})
+		if err := validateIdentifiers(&input, &registerInput); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			c.Abort()
 			return
 		}
 
-		registerInput := models.RegisterInput{
-			Password: password,
+		if err := validatePassword(input.Password, &registerInput); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			c.Abort()
+			return
 		}
 
-		if email != "" {
-			if !validators.IsValidEmail(email) {
-				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid email format"})
-				c.Abort()
-				return
-			}
-
-			registerInput.Email = email
-		}
-
-		if phone != "" {
-			if !validators.IsValidPhone(phone) {
-				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid phone number format"})
-				c.Abort()
-				return
-			}
-			registerInput.Phone = phone
-		}
-
-		// Strong password validation
-		// if !strongPassRegex.MatchString(password) {
-		// 	c.JSON(http.StatusBadRequest, gin.H{
-		// 		"error": "Password must be 8–64 chars, include upper, lower, number, and special character",
-		// 	})
-		// 	c.Abort()
-		// 	return
-		// }
-
-		// Store sanitized input for handler
+		// Store sanitized input for the next handler
 		c.Set("register_input", registerInput)
 		c.Next()
 	}
+}
+
+func validateIdentifiers(input *models.RegisterInput, registerInput *models.RegisterInput) error {
+	if input.Email == "" && input.Phone == "" {
+		return errors.New("email or phone number is required")
+	}
+
+	if input.Email != "" {
+		email, err := validators.ValidateEmail(input.Email)
+		if err != nil {
+			return err
+		}
+		registerInput.Email = email
+	}
+
+	if input.Phone != "" {
+		phone, err := validators.ParseAndFormatPhone(input.Phone, "US")
+		if err != nil {
+			return err
+		}
+		registerInput.Phone = phone
+	}
+
+	return nil
+}
+
+func validatePassword(password string, registerInput *models.RegisterInput) error {
+	validPassword, err := validators.ValidatePassword(password)
+	if err != nil {
+		return err
+	}
+	registerInput.Password = validPassword
+	return nil
 }

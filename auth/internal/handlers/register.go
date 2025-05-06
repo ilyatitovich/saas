@@ -11,7 +11,7 @@ import (
 func Register(c *gin.Context) {
 	input, exists := c.Get("register_input")
 	if !exists {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "missing input in context"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Missing input in context"})
 		return
 	}
 
