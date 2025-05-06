@@ -1,9 +1,10 @@
 package handlers
 
 import (
-	"fmt"
 	"net/http"
 	"saas/auth/internal/models"
+
+	"saas/auth/internal/services"
 
 	"github.com/gin-gonic/gin"
 )
@@ -16,10 +17,14 @@ func Register(c *gin.Context) {
 	}
 
 	data := input.(models.RegisterInput)
-	fmt.Println("🔍 Register Input:", data)
-	fmt.Println("📧 Email:", data.Email)
-	fmt.Println("📞 Phone:", data.Phone)
-	fmt.Println("🔐 Password:", data.Password)
+	user, err := services.RegisterUser(data)
+	if err != nil {
+		c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+		return
+	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "register input received"})
+	c.JSON(http.StatusCreated, gin.H{
+		"message": "User registered successfully",
+		"user":    user.ToDTO(),
+	})
 }
